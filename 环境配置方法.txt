@@ -1,0 +1,16 @@
+1. 安装Anaconda
+2. 安装Pycharm
+3. Anaconda中安装tensorflow(如果用GPU的话，需要先安装Nvidia显卡驱动、CUDA驱动、cuDNN驱动, 设置cuDNN环境变量，然后conda install tensorflow-gpu)
+4. 安装
+scipy
+scikit-learn
+h5py
+matplotlib
+Pillow
+requests
+psutil
+
+conda install ***
+5. 安装opencv for python(要去opencv官网下载到本地，然后pip install)
+
+6. pymysql / DBUtils

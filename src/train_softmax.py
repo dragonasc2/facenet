@@ -72,6 +72,7 @@ def main(args):
     
     print('Model directory: %s' % model_dir)
     print('Log directory: %s' % log_dir)
+
     pretrained_model = None
     if args.pretrained_model:
         pretrained_model = os.path.expanduser(args.pretrained_model)
