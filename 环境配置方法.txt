@@ -13,4 +13,4 @@ psutil
 conda install ***
 5. 安装opencv for python(要去opencv官网下载到本地，然后pip install)
 
-6. pymysql / DBUtils
+6. pymysql(conda install) / DBUtils(pip install)

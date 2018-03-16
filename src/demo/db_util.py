@@ -2,9 +2,9 @@ import pymysql
 from DBUtils.PooledDB import PooledDB
 import datetime
 
-server_ip = '**'
-user_name = '**'
-password = '**'
+server_ip = 'localhost'
+user_name = 'dragon_n'
+password = 'behappy'
 schema = 'face_recognition'
 pool = PooledDB(pymysql, 50, host=server_ip, user=user_name, passwd=password, db=schema,
                 use_unicode=True, charset='utf8')
