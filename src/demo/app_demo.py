@@ -16,6 +16,7 @@ import threading
 import cv2
 import datetime
 import json
+import time
 
 
 class BoundingBox:
@@ -123,6 +124,7 @@ class FaceInfo:
         self.face_image = face_image  # PIL.Image, 脸的图像, 'RGB'模式
         self.face_features = face_features  # 一位数组, 脸的特征
         self.raw_image_id = raw_image_id  # 该脸图像的来自的图像的ID，只有在录入新脸时才有效
+        self.similarity = 0
 
     def insert_into_db(self):
         """
@@ -219,23 +221,24 @@ def search_most_similar_face_from_db(features):
     cursor = conn.cursor()
     cursor.execute('SELECT face_id, features FROM face ORDER BY face_id')
     results = cursor.fetchall()
-    smallest_dist = np.Inf
+    largest_sim = 0
     closest_face_id = None
     if len(results) == 0:
         return
     for result in results:
         recorded_id = result[0]
         recorded_features = json.loads(result[1])
-        dist = np.sqrt(np.sum(np.square(np.subtract(np.array(recorded_features), features))))
-        if dist < smallest_dist:
-            smallest_dist = dist
+        cos_theta = np.dot(features, recorded_features) / (np.linalg.norm(features) * np.linalg.norm(recorded_features))
+        sim = (1 + cos_theta) / 2
+        if sim > largest_sim:
+            largest_sim = sim
             closest_face_id = recorded_id
     cursor.execute('SELECT name, face_image, image_height, image_width, record_create_time, features '
                    'FROM face WHERE face_id=%s', (closest_face_id, ))
     result = cursor.fetchone()
     best_match_image = Image.frombytes(mode='RGB', size=(result[2], result[3]), data=result[1])
     best_match_face = FaceInfo(name=result[0], face_image=best_match_image, face_features=json.loads(result[5]))
-    best_match_face.dist = float(smallest_dist)
+    best_match_face.similarity = sim
     return best_match_face
 
 
@@ -256,14 +259,20 @@ class ImageCapturingThread(threading.Thread):
         self.face_detector = FaceDetector()
         self.face_feature_extractor = FaceFeatureExtractor('../pre-trained_models/20170512-110547')
         self.face_resize = face_resize
+        self.frame_counter = 0
 
     def run(self):
         cap = cv2.VideoCapture(0)
         while True:
             # get a frame
-            _, np_image = cap.read()
+            self.frame_counter += 1
+
+            _, np_image = cap.read()  # GBR格式
+            np_image = np.roll(np_image, 1, axis=-1) # 重新排列通道，转变为 RGB格式
+
+            t_start = time.time()
             self.captured_image.set_image(input_image=np_image)
-            image = Image.fromarray(np_image)
+            image = Image.fromarray(np_image, mode='RGB')
             draw = ImageDraw.Draw(image)
             tmp = self.face_detector.detect_faces([np_image])
             if np.shape(tmp)[0] != 0:
@@ -283,19 +292,21 @@ class ImageCapturingThread(threading.Thread):
                     most_similar_face = search_most_similar_face_from_db(features)
                     if most_similar_face is None:
                         continue
-                    if most_similar_face.dist < 0.5:
+                    if most_similar_face.similarity > 0.9:
                         draw.text(
                             (face_bb.top_left_w, face_bb.top_left_h),
-                            text=most_similar_face.name + ' distance : ' + str(most_similar_face.dist)
+                            text=most_similar_face.name + ' similarity : ' + str(most_similar_face.similarity)
                         )
                     else:
                         draw.text(
                             (face_bb.top_left_w, face_bb.top_left_h),
-                            text='No Match, smallest distance : ' + str(most_similar_face.dist)
+                            text='No Match, smallest distance : ' + str(most_similar_face.similarity)
                         )
 
             tk_image = ImageTk.PhotoImage(image=image)
             self.image_widget['image'] = tk_image
+            t_finish = time.time()
+            print('frame %d: time cost %.3fs' % (self.frame_counter, t_finish - t_start))
         cap.release()
         cv2.desotryAllWindows()
 
@@ -330,6 +341,7 @@ class FaceRecognitionApp:
         self.face_resize = 160
         self.captured_image = CapturedImage()
         self.capturing_image_thread = ImageCapturingThread(self.captured_image, self.image_label, self.face_resize)
+        print('starting capturing thread')
         self.capturing_image_thread.start()
 
     def record_face(self):
