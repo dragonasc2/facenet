@@ -268,8 +268,9 @@ class ImageCapturingThread(threading.Thread):
             self.frame_counter += 1
 
             _, np_image = cap.read()  # GBR格式
-            np_image = np.roll(np_image, 1, axis=-1) # 重新排列通道，转变为 RGB格式
-
+            #np_image = np.roll(np_image, 1, axis=-1) # 重新排列通道，转变为 RGB格式
+            b, g, r = np_image[:, :, 0], np_image[:, :, 1], np_image[:, :, 2]
+            np_image = np.stack((r, g, b), axis=2)
             t_start = time.time()
             self.captured_image.set_image(input_image=np_image)
             image = Image.fromarray(np_image, mode='RGB')
